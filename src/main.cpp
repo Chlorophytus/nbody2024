@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     SetTargetFPS(60);
     std::random_device rd;
 
-    nbody::system_create(rd(), 512, width, height);
+    nbody::system_create(rd(), 1536, width, height);
     auto &&system = nbody::system_get();
 
     while (!WindowShouldClose()) {
@@ -22,12 +22,12 @@ int main(int argc, char **argv) {
         DrawCircleLinesV(Vector2{.x = p.x_position + (width / 2),
                             .y = p.y_position + (height / 2)},
                     p.mass / 2,
-                    Color{.r = 255, .g = static_cast<U8>(256 - (p.mass * 4)), .b = 0, .a = 255});
+                    Color{.r = 255, .g = static_cast<U8>(256 - (p.mass * 4.0f)), .b = 0, .a = 255});
       }
       DrawFPS(20, 20);
       EndDrawing();
       auto t0 = std::chrono::steady_clock::now();
-      nbody::system_tick(50);
+      nbody::system_tick(8);
       auto t1 = std::chrono::steady_clock::now();
       std::cerr << "Simulation time is " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0) << std::endl;
     }

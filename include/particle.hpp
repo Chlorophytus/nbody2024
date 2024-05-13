@@ -13,7 +13,7 @@ struct particle {
   U32 id;
 
   void gravitate(particle &);
-  void iterate();
+  void iterate(const U64);
 };
 
 void system_create(U32, U64, U64, U64);

@@ -2,7 +2,7 @@
 using namespace nbody;
 
 static std::unique_ptr<std::vector<particle>> particles{nullptr};
-constexpr static F32 G_force = -0.0001f;
+constexpr static F32 G_force = -1.0f;
 static U64 width;
 static U64 height;
 
@@ -22,7 +22,7 @@ void nbody::system_create(U32 seed, U64 num_particles, U64 x, U64 y) {
   std::uniform_real_distribution gen_ordinate(-0.5f, 0.5f);
   // Acceleration and velocity default to 0.0
   // Mass is an exponential distribution
-  std::exponential_distribution gen_mass(0.125f);
+  std::exponential_distribution gen_mass(0.1f);
 
   U32 id = 0;
   for (particle &p : *particles) {
@@ -32,7 +32,7 @@ void nbody::system_create(U32 seed, U64 num_particles, U64 x, U64 y) {
     p.y_velocity = 0.0f;
     p.x_acceleration = 0.0f;
     p.y_acceleration = 0.0f;
-    p.mass = std::clamp(gen_mass(randomizer), 2.0f, 64.0f);
+    p.mass = std::clamp(gen_mass(randomizer), 4.0f, 64.0f);
     p.id = id++;
   }
 }
@@ -41,14 +41,29 @@ void nbody::particle::gravitate(particle &other) {
   if (id == other.id) {
     return;
   }
-  // calculate G forces
-  const F32 x_delta = std::sqrt(x_position - other.x_position);
-  const F32 y_delta = std::sqrt(y_position - other.y_position);
-  const F32 x_delta_squared = std::pow(x_delta, 2.0f);
-  const F32 y_delta_squared = std::pow(y_delta, 2.0f);
+  constexpr F32 terminal = 1.0f;
+  constexpr F32 minimum = 16.0f;
+  F32 x_delta = other.x_position - x_position;
+  if (std::abs(x_delta) < minimum) {
+    x_delta = std::signbit(x_delta) ? -minimum : minimum;
+  }
+
+  F32 y_delta = other.y_position - y_position;
+  if (std::abs(y_delta) < minimum) {
+    y_delta = std::signbit(y_delta) ? -minimum : minimum;
+  }
   const F32 m1_m2 = other.mass * mass;
-  const F32 x_force = G_force * (m1_m2 / std::max(512.0f, x_delta_squared));
-  const F32 y_force = G_force * (m1_m2 / std::max(512.0f, y_delta_squared));
+
+  // calculate G forces
+  F32 x_force = G_force * (m1_m2 / (x_delta * x_delta));
+  F32 y_force = G_force * (m1_m2 / (y_delta * y_delta));
+  // squaring removes the negativity in the magnitude
+  if (std::signbit(x_delta)) {
+    x_force *= -1;
+  }
+  if (std::signbit(y_delta)) {
+    y_force *= -1;
+  }
 
   // Newton's second law, F = ma. In this case, a = (F/m) based on solving the
   // literal equation.
@@ -57,10 +72,13 @@ void nbody::particle::gravitate(particle &other) {
   other.x_acceleration += x_force / other.mass;
   other.y_acceleration += y_force / other.mass;
 }
-void nbody::particle::iterate() {
+void nbody::particle::iterate(const U64 particles_size) {
   // Acceleration is delta velocity
-  x_velocity += x_acceleration;
-  y_velocity += y_acceleration;
+  x_velocity += x_acceleration / particles_size;
+  y_velocity += y_acceleration / particles_size;
+  // Reset accelerations
+  x_acceleration = 0.0f;
+  y_acceleration = 0.0f;
 
   if (std::abs(x_position) > (width / 2.0f)) {
     x_velocity *= -1.0f;
@@ -74,41 +92,38 @@ void nbody::particle::iterate() {
 }
 
 void nbody::system_tick(const U64 num_threads) {
+  const U64 particles_size = particles->size();
   std::atomic<U64> thread_semaphore(num_threads);
-  std::mutex particles_access;
-
   for (U64 thread_i = 0; thread_i < num_threads; thread_i++) {
-    std::thread{[&thread_semaphore, &particles_access, &num_threads,
-                 thread_i]() {
+    std::thread{[&thread_semaphore, &num_threads, thread_i,
+                 particles_size]() {
       thread_local std::vector<particle> particles_stride{};
-      {
-        std::lock_guard<std::mutex> lock(particles_access);
-        const U64 particles_size = particles->size();
-        for (U64 particle_i = thread_i; particle_i < particles_size;
-             particle_i += num_threads) {
-          particles_stride.emplace_back((*particles)[particle_i]);
-        }
+      // Emplace particles into threaded particle cache
+      for (U64 particle_i = thread_i; particle_i < particles_size;
+           particle_i += num_threads) {
+        particles_stride.emplace_back((*particles)[particle_i]);
       }
+      // Calculate the pull for every particle
       for (particle &callee : particles_stride) {
-        std::lock_guard<std::mutex> lock(particles_access);
         std::for_each(particles->begin(), particles->end(),
                       [&callee](particle &p) { callee.gravitate(p); });
       }
-      std::for_each(particles_stride.begin(), particles_stride.end(),
-                    [](particle &p) { p.iterate(); });
-      {
-        // std::lock_guard<std::mutex> lock(particles_access);
-        const U64 particles_size = particles->size();
-        U64 stride_i = 0;
-        for (U64 particle_i = thread_i; particle_i < particles_size;
-             particle_i += num_threads) {
-          (*particles)[particle_i] = particles_stride[stride_i];
-          stride_i++;
-        }
+      // Calculate velocity and position then
+      std::for_each(
+          particles_stride.begin(), particles_stride.end(),
+          [particles_size](particle &p) { p.iterate(particles_size); });
+      // Strided sync threaded particle cache into particles
+      U64 stride_i = 0;
+      for (U64 particle_i = thread_i; particle_i < particles_size;
+           particle_i += num_threads) {
+        (*particles)[particle_i] = particles_stride[stride_i];
+        stride_i++;
       }
+      // Decrement semaphore
       thread_semaphore--;
     }}.detach();
   }
+  // Spin until semaphore is 0
   do {
     std::this_thread::sleep_for(std::chrono::microseconds(1));
   } while (thread_semaphore > 0);
