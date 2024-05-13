@@ -19,19 +19,15 @@ int main(int argc, char **argv) {
       BeginDrawing();
       ClearBackground(BLACK);
       for (const nbody::particle &p : *system) {
-        DrawCircleV(Vector2{.x = p.x_position + (width / 2),
+        DrawCircleLinesV(Vector2{.x = p.x_position + (width / 2),
                             .y = p.y_position + (height / 2)},
-                    p.mass,
-                    Color{.r = static_cast<U8>(p.mass * 8), .g = 127, .b = 0, .a = 255});
-        // std::cout << p.id << ": p " << p.x_position << " " << p.y_position
-        //           << " v " << p.x_velocity << " " << p.y_velocity << " a "
-        //           << p.x_acceleration << " " << p.y_acceleration <<
-        //           std::endl;
+                    p.mass / 2,
+                    Color{.r = 255, .g = static_cast<U8>(256 - (p.mass * 4)), .b = 0, .a = 255});
       }
       DrawFPS(20, 20);
       EndDrawing();
       auto t0 = std::chrono::steady_clock::now();
-      nbody::system_tick(8);
+      nbody::system_tick(50);
       auto t1 = std::chrono::steady_clock::now();
       std::cerr << "Simulation time is " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0) << std::endl;
     }

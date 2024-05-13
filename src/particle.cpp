@@ -2,7 +2,7 @@
 using namespace nbody;
 
 static std::unique_ptr<std::vector<particle>> particles{nullptr};
-constexpr static F32 G_force = -0.000001f;
+constexpr static F32 G_force = -0.0001f;
 static U64 width;
 static U64 height;
 
@@ -22,7 +22,7 @@ void nbody::system_create(U32 seed, U64 num_particles, U64 x, U64 y) {
   std::uniform_real_distribution gen_ordinate(-0.5f, 0.5f);
   // Acceleration and velocity default to 0.0
   // Mass is an exponential distribution
-  std::exponential_distribution gen_mass(0.25f);
+  std::exponential_distribution gen_mass(0.125f);
 
   U32 id = 0;
   for (particle &p : *particles) {
@@ -32,7 +32,7 @@ void nbody::system_create(U32 seed, U64 num_particles, U64 x, U64 y) {
     p.y_velocity = 0.0f;
     p.x_acceleration = 0.0f;
     p.y_acceleration = 0.0f;
-    p.mass = std::clamp(gen_mass(randomizer), 2.0f, 32.0f);
+    p.mass = std::clamp(gen_mass(randomizer), 2.0f, 64.0f);
     p.id = id++;
   }
 }
@@ -42,20 +42,20 @@ void nbody::particle::gravitate(particle &other) {
     return;
   }
   // calculate G forces
-  const F32 x_delta = std::sqrt(other.x_position - x_position);
-  const F32 y_delta = std::sqrt(other.y_position - y_position);
-  const F32 x_delta_squared = x_delta * x_delta;
-  const F32 y_delta_squared = y_delta * y_delta;
+  const F32 x_delta = std::sqrt(x_position - other.x_position);
+  const F32 y_delta = std::sqrt(y_position - other.y_position);
+  const F32 x_delta_squared = std::pow(x_delta, 2.0f);
+  const F32 y_delta_squared = std::pow(y_delta, 2.0f);
   const F32 m1_m2 = other.mass * mass;
-  const F32 x_force = G_force * (m1_m2 / std::max(32.0f, x_delta_squared));
-  const F32 y_force = G_force * (m1_m2 / std::max(32.0f, y_delta_squared));
+  const F32 x_force = G_force * (m1_m2 / std::max(512.0f, x_delta_squared));
+  const F32 y_force = G_force * (m1_m2 / std::max(512.0f, y_delta_squared));
 
   // Newton's second law, F = ma. In this case, a = (F/m) based on solving the
   // literal equation.
-  x_acceleration += x_force / mass;
-  y_acceleration += y_force / mass;
-  other.x_acceleration -= x_force / other.mass;
-  other.y_acceleration -= y_force / other.mass;
+  x_acceleration -= x_force / mass;
+  y_acceleration -= y_force / mass;
+  other.x_acceleration += x_force / other.mass;
+  other.y_acceleration += y_force / other.mass;
 }
 void nbody::particle::iterate() {
   // Acceleration is delta velocity
@@ -97,7 +97,7 @@ void nbody::system_tick(const U64 num_threads) {
       std::for_each(particles_stride.begin(), particles_stride.end(),
                     [](particle &p) { p.iterate(); });
       {
-        std::lock_guard<std::mutex> lock(particles_access);
+        // std::lock_guard<std::mutex> lock(particles_access);
         const U64 particles_size = particles->size();
         U64 stride_i = 0;
         for (U64 particle_i = thread_i; particle_i < particles_size;
@@ -110,6 +110,6 @@ void nbody::system_tick(const U64 num_threads) {
     }}.detach();
   }
   do {
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
+    std::this_thread::sleep_for(std::chrono::microseconds(1));
   } while (thread_semaphore > 0);
 }
