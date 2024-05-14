@@ -8,9 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(GRAPHICS GRAPHICS_API_OPENGL_43)
 
 # Project instantiation
-project(nbody VERSION 0.1.0.3)
+project(nbody VERSION 0.1.0.4)
 
-# Add GLM
+# Add Raylib 5.0
 find_package(raylib REQUIRED)
 
 # Configure the project header
@@ -21,6 +21,8 @@ configure_file(include/configuration.txt
 add_executable(${PROJECT_NAME}
     src/particle.cpp
     src/main.cpp)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma")
 
 # Use C++20 on target too
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED TRUE)
