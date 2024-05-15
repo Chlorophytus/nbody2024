@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(GRAPHICS GRAPHICS_API_OPENGL_43)
 
 # Project instantiation
-project(nbody VERSION 0.1.0.5)
+project(nbody VERSION 0.1.0.6)
 
 # Add Raylib 5.0
 find_package(raylib REQUIRED)

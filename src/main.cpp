@@ -1,7 +1,7 @@
 #include "../include/main.hpp"
 #include "../include/particle.hpp"
 
-constexpr U64 particles_count = 768;
+constexpr U64 particles_count = 1024;
 constexpr U64 width = 1280;
 constexpr U64 height = 720;
 
@@ -34,11 +34,13 @@ int main(int argc, char **argv) {
       }
       DrawFPS(20, 20);
       std::stringstream timing_stream{};
+      std::string particle_text{};
       timing_stream << "Simulation ";
       timing_stream << std::chrono::duration_cast<std::chrono::milliseconds>(
           t1 - t0);
-      timing_stream << " | " << particles_count << " particles";
+      particle_text = std::to_string(particles_count) + " particles";
       DrawText(timing_stream.str().c_str(), 20, 50, 20, GRAY);
+      DrawText(particle_text.c_str(), 20, 80, 20, GRAY);
 
       EndDrawing();
     }
