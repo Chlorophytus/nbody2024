@@ -22,28 +22,7 @@ struct particle {
   /// acceleration accumulator
   void iterate(const U64);
 };
-#if 0
-/// Store 8 particles
-struct particle_cluster8 {
-  __m256 x_position;
-  __m256 y_position;
-  __m256 x_velocity;
-  __m256 y_velocity;
-  __m256 x_acceleration;
-  __m256 y_acceleration;
-  __m256 mass;
-  U32 id;
 
-  /// @brief Calculate gravity of 8 particles to another 8
-  /// @param other Another 8-particle cluster to gravitate toward
-  void gravitate_vectorized(particle_cluster8 &);
-
-  /// @brief Calculate positions and velocities
-  /// @param num_particles Number of particle clusters in this system, to divide
-  /// the acceleration accumulator
-  void iterate_vectorized(const U64);
-};
-#endif
 /// @brief Initialize an N-body simulation
 /// @param seed Random Number Generator seed value
 /// @param num_particles Particle count
