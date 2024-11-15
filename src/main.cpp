@@ -1,7 +1,7 @@
 #include "../include/main.hpp"
 #include "../include/particle.hpp"
 
-constexpr U64 particles_count = 1024;
+constexpr U64 particles_count = 768;
 constexpr U64 width = 1280;
 constexpr U64 height = 720;
 
