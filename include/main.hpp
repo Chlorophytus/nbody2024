@@ -7,6 +7,7 @@
 
 // Raylib is included
 #include <raylib.h>
+#include <raymath.h>
 
 // Unsigned 8-bit integer scalar
 using U8 = std::uint8_t;

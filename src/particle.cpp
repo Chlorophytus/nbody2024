@@ -1,4 +1,5 @@
 #include "../include/particle.hpp"
+#include "raymath.h"
 using namespace nbody;
 
 static std::unique_ptr<std::vector<particle>> particles{nullptr};
@@ -30,13 +31,14 @@ decltype(particles) &nbody::system_create(U32 seed, U64 num_particles, U64 x,
 
   U32 id = 0;
   for (particle &p : *particles) {
-    p.x_position = width * gen_ordinate(randomizer);
-    p.y_position = height * gen_ordinate(randomizer);
-    p.x_velocity = 0.0f;
-    p.y_velocity = 0.0f;
-    p.x_acceleration = 0.0f;
-    p.y_acceleration = 0.0f;
+    p.position = Vector2{.x = width * gen_ordinate(randomizer), .y = height * gen_ordinate(randomizer)};
+    p.velocity = Vector2Zero();
+    p.acceleration = Vector2Zero();
     p.mass = std::clamp(gen_mass(randomizer), 4.0f, 64.0f);
+    p.color = Color{.r = 255,
+                    .g = static_cast<U8>(256 - (p.mass * 4.0f)),
+                    .b = 0,
+                    .a = 255};
     p.id = id++;
   }
 
@@ -49,78 +51,60 @@ void nbody::particle::gravitate(particle &other) {
     return;
   }
 
-  // Calculate the difference of the X positions
-  F32 x_delta = other.x_position - x_position;
-
-  // Calculate the difference of the Y positions
-  F32 y_delta = other.y_position - y_position;
+  // Calculate the difference of the positions
+  Vector2 delta = other.position - position;
 
   // When calculating, clamp the absolute values to a certain amount so a
   // division by 0 does not occur.
-  if (std::abs(x_delta) < minimum) {
-    x_delta = std::signbit(x_delta) ? -minimum : minimum;
+  if (std::abs(delta.x) < minimum) {
+    delta.x = std::signbit(delta.x) ? -minimum : minimum;
   }
-  if (std::abs(y_delta) < minimum) {
-    y_delta = std::signbit(y_delta) ? -minimum : minimum;
+  if (std::abs(delta.y) < minimum) {
+    delta.y = std::signbit(delta.y) ? -minimum : minimum;
   }
 
   // One component of Newton's gravitation formula is to multiply both masses
-  const F32 m1_m2 = other.mass * mass;
+  const Vector2 m1_m2 = Vector2{.x = other.mass * mass, .y = other.mass * mass};
 
   // Calculate the final Newton's gravitation formula values
 
-  // X gravitation force value
-  F32 x_force = G_force * (m1_m2 / (x_delta * x_delta));
-  // Y gravitation force value
-  F32 y_force = G_force * (m1_m2 / (y_delta * y_delta));
+  // Gravitation force value
+  Vector2 force = (m1_m2 / (delta * delta)) * G_force;
 
   // Squaring the distances removed the signs, let's bring the signedness back
-  if (std::signbit(x_delta)) {
-    x_force *= -1;
+  if (std::signbit(delta.x)) {
+    force.x *= -1;
   }
-  if (std::signbit(y_delta)) {
-    y_force *= -1;
+  if (std::signbit(delta.y)) {
+    force.y *= -1;
   }
-
   // Newton's second law, F = ma. In this case, a = (F/m) based on solving the
   // literal equation.
 
-  // Self X acceleration is attraction in one direction
-  x_acceleration += x_force / mass;
-  // Self Y acceleration is attraction in one direction
-  y_acceleration += y_force / mass;
+  // Self acceleration is attraction in one direction
+  acceleration += force / mass;
 
-  // Neighbor X acceleration is attraction in other direction
-  other.x_acceleration -= x_force / other.mass;
-  // Neighbor Y acceleration is attraction in other direction
-  other.y_acceleration -= y_force / other.mass;
+  // Neighbor acceleration is attraction in other direction
+  other.acceleration -= force / other.mass;
 }
 void nbody::particle::iterate(const U64 particles_size) {
-  // X acceleration is a change in X velocity
-  x_velocity += x_acceleration / particles_size;
-  // Y acceleration is a change in Y velocity
-  y_velocity += y_acceleration / particles_size;
+  // acceleration is a change in velocity
+  velocity += acceleration / particles_size;
 
-  // Reset X acceleration accumulator
-  x_acceleration = 0.0f;
-  // Reset Y acceleration accumulator
-  y_acceleration = 0.0f;
+  // Reset acceleration accumulator
+  acceleration = Vector2Zero();
 
-  // X velocity can bounces off the window edges
-  if (std::abs(x_position) > (width / 2.0f)) {
-    x_velocity *= -1.0f;
+  // velocity can bounce off the window edges
+  if (std::abs(position.x) > (width / 2.0f)) {
+    velocity.x *= -1.0f;
   }
-
-  // X velocity is a change in X position
-  x_position += x_velocity;
-
   // Y velocity can bounce off the window edges
-  if (std::abs(y_position) > (height / 2.0f)) {
-    y_velocity *= -1.0f;
+  if (std::abs(position.y) > (height / 2.0f)) {
+    velocity.y *= -1.0f;
   }
 
   // Y velocity is a change in Y position
-  y_position += y_velocity;
+  position += velocity;
 }
 
 void nbody::system_tick(const U64 num_threads) {

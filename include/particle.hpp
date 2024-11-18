@@ -4,14 +4,12 @@
 namespace nbody {
 /// Store 1 particle
 struct particle {
-  F32 x_position;
-  F32 y_position;
-  F32 x_velocity;
-  F32 y_velocity;
-  F32 x_acceleration;
-  F32 y_acceleration;
+  Vector2 position;
+  Vector2 velocity;
+  Vector2 acceleration;
   F32 mass;
   U32 id;
+  Color color;
 
   /// @brief Calculate gravity of one particle to another
   /// @param other Another particle to gravitate toward
